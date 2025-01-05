@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clickkart</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flask App</title>
+
+    <!-- Favicon -->
+    <link href="{{ url_for('static', filename='img/favicon.ico') }}" rel="icon">
+
+    <!-- Google Web Fonts -->
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">  
+
+    <!-- Font Awesome -->
+    <link href="{{ url_for('static', filename='font-awesome/css/all.min.css') }}" rel="stylesheet">
+
+    <!-- Libraries Stylesheet -->
+    <link href="{{ url_for('static', filename='lib/animate/animate.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='lib/owlcarousel/assets/owl.carousel.min.css') }}" rel="stylesheet">
+
+    <!-- Customized Bootstrap Stylesheet -->
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='cart.css') }}">
+    <style>
+        /* Pop-up notification styles */
+        #popup-notification {
+            position: fixed;
+            top: -50px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #28a745;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            opacity: 0;
+            transition: all 0.5s ease-in-out;
+        }
+        #popup-notification.show {
+            top: 20px;
+            opacity: 1;
+        }
+        #popup-notification.hidden {
+            top: -50px;
+            opacity: 0;
+        }
+    </style>
+    <script>
+        async function checkReferral() {
+            const referralCode = document.querySelector('input').value;
+            const response = await fetch('/check-referral', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ referral_code: referralCode })
+            });
+
+            const result = await response.json();
+            const messageDiv = document.getElementById('message');
+            const messageDiv2 = document.getElementById('message2');
+
+            // Update content and styles
+            messageDiv.textContent = result.message;
+            messageDiv.style.color = result.valid ? 'green' : 'red';
+
+            messageDiv2.textContent = result.message2 || '';
+            messageDiv2.style.color = result.valid ? 'green' : 'red';
+        }
+
+        function removeItem(productName, event) {
+            event.preventDefault();  // Prevent form submission and page refresh
+
+            fetch('/remove-item', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ product_name: productName })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Find and remove the item's HTML element
+                    const itemElement = document.querySelector(`[data-product-name="${productName}"]`);
+                    if (itemElement) {
+                        // Get the item price and update the total price
+                        const itemPrice = parseFloat(itemElement.querySelector('p').textContent.replace('₹ ', '').trim());
+                        const totalPriceElement = document.querySelector('.cart-footer p span');
+                        const currentTotal = parseFloat(totalPriceElement.textContent.trim());
+                        const newTotal = (currentTotal - itemPrice).toFixed(2);  // Update total
+                        totalPriceElement.textContent = newTotal;
+
+                        // Remove the item element from the DOM
+                        itemElement.remove();
+                    }
+                } else {
+                    alert(data.message);  // Show an error message if removal fails
+                }
+            })
+            .catch(error => console.error('Error:', error));  // Log any errors
+        }
+
+    </script>
+</head>
+<body>
+    <header>
+        <div class="top-bar">
+            <p>Buy the product with your friends circle</p>
+        </div>
+        <nav class="navbar">
+            <div class="logo">CLICKKART STORE</div>
+            <ul class="menu">
+                <li><a href="/"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-house-heart-fill" viewBox="0 0 16 16">
+                    <path d="M7.293 1.5a1 1 0 0 1 1.414 0L11 3.793V2.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v3.293l2.354 2.353a.5.5 0 0 1-.708.707L8 2.207 1.354 8.853a.5.5 0 1 1-.708-.707z"/>
+                    <path d="m14 9.293-6-6-6 6V13.5A1.5 1.5 0 0 0 3.5 15h9a1.5 1.5 0 0 0 1.5-1.5zm-6-.811c1.664-1.673 5.825 1.254 0 5.018-5.825-3.764-1.664-6.691 0-5.018"/>
+                  </svg> Home</a></li>
+                <li><a href="#">Shop</a></li>
+                <li><a href="/cart">Cart</a></li>
+                <li><a href="/login">Login</a></li>
+                <li><a href="/signup">Signup</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <section class="referral-section">
+        <input type="text" placeholder="Enter Referral Code if you have">
+        <button onclick="checkReferral()">Check</button>
+        <div id="message"></div>
+        <div id="message2"></div>
+    </section>
+
+    <main>
+        <div class="container-fluid">
+            <div class="row px-xl-5">
+                <div class="col-lg-8 table-responsive mb-5">
+                    <table class="table table-light table-borderless table-hover text-center mb-0">
+                        <thead class="thead-dark">
+                            <tr>
+                                <th>Products</th>
+                                <th>Original Price</th>
+                                <!-- <th>Quantity</th> -->
+                                <th>offer Price</th>
+                                <th>Remove</th>
+                            </tr>
+                        </thead>
+                        <tbody class="align-middle">
+                            {% for item in cart %}
+                            <tr>
+                                <td class="align-middle"><img src="{{item[0]}}" alt="" style="width: 50px;"> {{ item[1] }}</td>
+                                <td class="align-middle">₹ {{ item[2]*3 }}</td>
+
+                                <td class="align-middle">₹ {{ item[2] }}</td>
+                                <td class="align-middle"><button class="btn btn-sm btn-danger"><i class="fa fa-times"></i></button></td>
+                            </tr>
+                            {% endfor %}
+                            
+                        </tbody>
+                    </table>
+                </div>
+                <div class="col-lg-4">
+                    <form class="mb-30" action="">
+                        <div class="input-group">
+                            <!-- <input type="text" class="form-control border-0 p-4" placeholder="Coupon Code"> -->
+                            <select id="category" name="category" required>
+                                <option value=3>4</option>
+                                <option value=4>5</option>
+                                <option value=5>6</option>
+                                <option value=6>7</option>
+                                <option value=7>8</option>
+                                <option value=8>9</option>
+                                <option value=9>10</option>
+                            </select>
+                            <div class="input-group-append">
+                                <button class="btn btn-primary">Share with people </button>
+                            </div>
+                        </div>
+                    </form>
+                    <h5 class="section-title position-relative text-uppercase mb-3"><span class="bg-secondary pr-3">Cart Summary</span></h5>
+                    <div class="bg-light p-30 mb-5">
+                        <div class="border-bottom pb-2">
+                            <div class="d-flex justify-content-between mb-3">
+                                <h6>Subtotal</h6>
+                                <h6>$150</h6>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <h6 class="font-weight-medium">Shipping</h6>
+                                <h6 class="font-weight-medium">₹10</h6>
+                            </div>
+                        </div>
+                        <div class="pt-2">
+                            <div class="d-flex justify-content-between mt-2">
+                                <h5>Total</h5>
+                                <h5>₹{{total_price}}</h5>
+                            </div>
+                            <button class="btn btn-block btn-primary font-weight-bold my-3 py-3">Proceed To Checkout</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <p>© 2025 Clickkart Store. All Rights Reserved.</p>
+    </footer>
+
+    <div id="popup-notification" class="hidden">Product added to cart!</div>
+
+</body>
+</html>

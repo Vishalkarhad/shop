@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clickkart</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='cart.css') }}">
+    <style>
+        /* Pop-up notification styles */
+        #popup-notification {
+            position: fixed;
+            top: -50px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #28a745;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            opacity: 0;
+            transition: all 0.5s ease-in-out;
+        }
+        #popup-notification.show {
+            top: 20px;
+            opacity: 1;
+        }
+        #popup-notification.hidden {
+            top: -50px;
+            opacity: 0;
+        }
+    </style>
+    <script>
+        async function checkReferral() {
+            const referralCode = document.querySelector('input').value;
+            const response = await fetch('/check-referral', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ referral_code: referralCode })
+            });
+
+            const result = await response.json();
+            const messageDiv = document.getElementById('message');
+            const messageDiv2 = document.getElementById('message2');
+
+            // Update content and styles
+            messageDiv.textContent = result.message;
+            messageDiv.style.color = result.valid ? 'green' : 'red';
+
+            messageDiv2.textContent = result.message2 || '';
+            messageDiv2.style.color = result.valid ? 'green' : 'red';
+        }
+
+        function removeItem(productName, event) {
+            event.preventDefault();  // Prevent form submission and page refresh
+
+            fetch('/remove-item', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ product_name: productName })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Find and remove the item's HTML element
+                    const itemElement = document.querySelector(`[data-product-name="${productName}"]`);
+                    if (itemElement) {
+                        // Get the item price and update the total price
+                        const itemPrice = parseFloat(itemElement.querySelector('p').textContent.replace('₹ ', '').trim());
+                        const totalPriceElement = document.querySelector('.cart-footer p span');
+                        const currentTotal = parseFloat(totalPriceElement.textContent.trim());
+                        const newTotal = (currentTotal - itemPrice).toFixed(2);  // Update total
+                        totalPriceElement.textContent = newTotal;
+
+                        // Remove the item element from the DOM
+                        itemElement.remove();
+                    }
+                } else {
+                    alert(data.message);  // Show an error message if removal fails
+                }
+            })
+            .catch(error => console.error('Error:', error));  // Log any errors
+        }
+
+    </script>
+</head>
+<body>
+    <header>
+        <div class="top-bar">
+            <p>Buy the product with your friends circle</p>
+        </div>
+        <nav class="navbar">
+            <div class="logo">CLICKKART STORE</div>
+            <ul class="menu">
+                <li><a href="/"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-house-heart-fill" viewBox="0 0 16 16">
+                    <path d="M7.293 1.5a1 1 0 0 1 1.414 0L11 3.793V2.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v3.293l2.354 2.353a.5.5 0 0 1-.708.707L8 2.207 1.354 8.853a.5.5 0 1 1-.708-.707z"/>
+                    <path d="m14 9.293-6-6-6 6V13.5A1.5 1.5 0 0 0 3.5 15h9a1.5 1.5 0 0 0 1.5-1.5zm-6-.811c1.664-1.673 5.825 1.254 0 5.018-5.825-3.764-1.664-6.691 0-5.018"/>
+                  </svg> Home</a></li>
+                <li><a href="#">Shop</a></li>
+                <li><a href="/cart">Cart</a></li>
+                <li><a href="/login">Login</a></li>
+                <li><a href="/signup">Signup</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <section class="referral-section">
+        <input type="text" placeholder="Enter Referral Code if you have">
+        <button onclick="checkReferral()">Check</button>
+        <div id="message"></div>
+        <div id="message2"></div>
+    </section>
+
+    <main>
+        <div class="cart-container">
+            <header class="cart-header">
+                <h1>Shopping Cart</h1>
+                <p> Buy the the product with share with 5 people</p>
+            </header>
+            <section class="cart-items">
+                {% for item in cart %}
+                    <div class="cart-item" data-product-name="{{ item[0] }}">
+                        <img src="{{item[0]}}" alt="{{ item[1] }}" class="item-image">
+                        <div class="item-details">
+                            <h2 style="color: rgb(12, 2, 2);">{{ item[1] }}</h2>
+                            <h3>Price: ₹ {{ item[2] }}</h3>
+                            <div class="quantity-controls">
+                                <!-- Quantity control is not implemented as no quantity field exists -->
+                            </div>
+                            <button type="button" onclick="removeItem('{{ item[1] }}', event)" class="remove-btn">Remove</button>
+                        </div>
+                    </div>
+                {% endfor %}
+                
+                
+            </section>
+            
+            <footer class="cart-footer">
+                <h4 style="color: #186a2b;">Total Price: ₹ <span>{{ total_price }}</span></h4> <!-- Updated total price is now inside a span -->
+                <form action="/pay-now" method="post">
+                    <button type="submit" class="pay-now-btn">Check out</button>
+                </form>
+            </footer>
+        </div>
+    </main>
+
+    <footer>
+        <p>© 2025 Clickkart Store. All Rights Reserved.</p>
+    </footer>
+
+    <div id="popup-notification" class="hidden">Product added to cart!</div>
+
+</body>
+</html>
